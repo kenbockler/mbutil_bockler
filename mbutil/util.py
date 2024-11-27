@@ -9,7 +9,14 @@
 # for additional reference on schema see:
 # https://github.com/mapbox/node-mbtiles/blob/master/lib/schema.sql
 
-import sqlite3, sys, logging, time, os, json, zlib, re
+import json
+import logging
+import os
+import re
+import sqlite3
+import sys
+import time
+import zlib
 
 logger = logging.getLogger(__name__)
 
@@ -292,8 +299,16 @@ def mbtiles_to_disk(mbtiles_file, directory_path, **kwargs):
         logger.debug("%s --> %s" % (mbtiles_file, directory_path))
     con = mbtiles_connect(mbtiles_file, silent)
     os.mkdir("%s" % directory_path)
+
+    # Metadata lugemine ja failivormingu valimine
     metadata = dict(con.execute('select name, value from metadata;').fetchall())
     json.dump(metadata, open(os.path.join(directory_path, 'metadata.json'), 'w'), indent=4)
+    image_format = metadata.get('format', 'pbf')  # Kasuta metadata formaati või vaikimisi .pbf
+
+    if not silent:
+        logger.info("Tile format detected: %s" % image_format)
+
+
     count = con.execute('select count(zoom_level) from tiles;').fetchone()[0]
     done = 0
     base_path = directory_path
@@ -333,7 +348,7 @@ def mbtiles_to_disk(mbtiles_file, directory_path, **kwargs):
         if kwargs.get('scheme') == 'wms':
             tile = os.path.join(tile_dir,'%03d.%s' % (int(y) % 1000, kwargs.get('format', 'png')))
         else:
-            tile = os.path.join(tile_dir,'%s.%s' % (y, kwargs.get('format', 'png')))
+            tile = os.path.join(tile_dir, f'{y}.{image_format}')
         f = open(tile, 'wb')
         f.write(t[3])
         f.close()
